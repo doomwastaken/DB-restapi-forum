@@ -66,8 +66,7 @@ func (us *UserRepo) GetUserByNickname(nickname string) (*entity.User, error) {
 	return user, nil
 }
 
-const UpdateUserQuery = `UPDATE users SET fullname = $1, email = $2, about = $3
-		WHERE id = $4`
+const UpdateUserQuery = `UPDATE users SET fullname = $1, email = $2, about = $3 WHERE id = $4`
 func (us *UserRepo) UpdateUser(newUser *entity.User) (*entity.User, error) {
 	_, err := us.db.Exec(context.Background(), UpdateUserQuery, newUser.Fullname, newUser.Email, newUser.About, newUser.ID)
 	if err != nil {

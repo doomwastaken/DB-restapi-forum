@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
-	"github.com/gorilla/mux"
-	"go.uber.org/zap"
-	"io/ioutil"
+	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
 )
@@ -16,41 +14,26 @@ type ForumInfo struct {
 	ForumApp  application.ForumAppInterface
 	UserApp   application.UserAppInterface
 	ThreadApp application.ThreadAppInterface
-	logger    *zap.Logger
 }
 
 func NewForumInfo(
 	ForumApp application.ForumAppInterface,
 	UserApp application.UserAppInterface,
 	ThreadApp application.ThreadAppInterface,
-	logger *zap.Logger) *ForumInfo {
+	) *ForumInfo {
 	return &ForumInfo{
 		ForumApp:  ForumApp,
 		UserApp:   UserApp,
 		ThreadApp: ThreadApp,
-		logger:    logger,
 	}
 }
 
-func (forumInfo *ForumInfo) HandleCreateForum(w http.ResponseWriter, r *http.Request) {
-	forumInfo.logger.Info("HandleCreateForum")
+func (forumInfo *ForumInfo) HandleCreateForum(ctx *fasthttp.RequestCtx) {
 	forum := &entity.Forum{}
 
-	data, err := ioutil.ReadAll(r.Body)
+	err := json.Unmarshal(ctx.Request.Body(), forum)
 	if err != nil {
-		forumInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	err = json.Unmarshal(data, forum)
-	if err != nil {
-		forumInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
@@ -61,13 +44,13 @@ func (forumInfo *ForumInfo) HandleCreateForum(w http.ResponseWriter, r *http.Req
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
@@ -75,97 +58,93 @@ func (forumInfo *ForumInfo) HandleCreateForum(w http.ResponseWriter, r *http.Req
 
 	err = forumInfo.ForumApp.CreateForum(forum)
 	if err != nil {
-		forumInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
 
 		existingForum, err := forumInfo.ForumApp.GetForumDetails(forum.Slug)
 		if err != nil {
-			forumInfo.logger.Info(
-				err.Error(), zap.String("url", r.RequestURI),
-				zap.String("method", r.Method))
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
 
 		body, err := json.Marshal(existingForum)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusConflict)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal(forum)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusCreated)
+	ctx.SetBody(body)
 
 }
 
-func (forumInfo *ForumInfo) HandleGetForumDetails(w http.ResponseWriter, r *http.Request) {
-	forumInfo.logger.Info("HandleGetForumDetails")
-	vars := mux.Vars(r)
-	slug := vars[string(entity.SlugKey)]
+func (forumInfo *ForumInfo) HandleGetForumDetails(ctx *fasthttp.RequestCtx) {
+	forumnameInterface := ctx.UserValue("forumname")
+
+	var slug string
+	switch forumnameInterface.(type) {
+	case string:
+		slug = forumnameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
 
 	forum, err := forumInfo.ForumApp.GetForumDetails(slug)
 	if err != nil {
 		msg := entity.Message {
-			Text: fmt.Sprintf("Can't find user with id #%v\n", forum.User),
+			Text: fmt.Sprintf("Can't find user with id #%v\n", slug),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal(forum)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 }
 
-func (forumInfo *ForumInfo) HandleCreateForumThread(w http.ResponseWriter, r *http.Request) {
-	forumInfo.logger.Info("HandleCreateForumThread")
-	vars := mux.Vars(r)
-	slug := vars[string(entity.SlugKey)]
+func (forumInfo *ForumInfo) HandleCreateForumThread(ctx *fasthttp.RequestCtx) {
+	forumnameInterface := ctx.UserValue("forumname")
 
-	thread := &entity.Thread{}
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		forumInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+	var slug string
+	switch forumnameInterface.(type) {
+	case string:
+		slug = forumnameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
-	err = json.Unmarshal(data, thread)
+	thread := &entity.Thread{}
+	err := json.Unmarshal(ctx.Request.Body(), thread)
 	if err != nil {
-		forumInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
@@ -178,13 +157,13 @@ func (forumInfo *ForumInfo) HandleCreateForumThread(w http.ResponseWriter, r *ht
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 	thread.Author = nickname
@@ -197,172 +176,177 @@ func (forumInfo *ForumInfo) HandleCreateForumThread(w http.ResponseWriter, r *ht
 			}
 			body, err := json.Marshal(msg)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(body)
+			ctx.SetContentType("application/json")
+			ctx.SetStatusCode(http.StatusNotFound)
+			ctx.SetBody(body)
 			return
 		}
 
 		existedThread, err := forumInfo.ThreadApp.GetThread(*thread.Slug)
 		if err != nil {
-			forumInfo.logger.Info(
-				err.Error(), zap.String("url", r.RequestURI),
-				zap.String("method", r.Method))
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
 		body, err := json.Marshal(existedThread)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusConflict)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal(thread)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusCreated)
+	ctx.SetBody(body)
 }
 
-func (forumInfo *ForumInfo) HandleGetForumUsers(w http.ResponseWriter, r *http.Request) {
-	forumInfo.logger.Info("HandleGetForumUsers")
-	vars := mux.Vars(r)
-	slug := vars[string(entity.SlugKey)]
+func (forumInfo *ForumInfo) HandleGetForumUsers(ctx *fasthttp.RequestCtx) {
+	forumnameInterface := ctx.UserValue("forumname")
 
-	err := forumInfo.ForumApp.CheckForum(slug)
+	var slug string
+	switch forumnameInterface.(type) {
+	case string:
+		slug = forumnameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
+
+	_, err := forumInfo.ForumApp.CheckForumCase(slug)
 	if err != nil {
 		msg := entity.Message {
 			Text: fmt.Sprintf("Can't find forum by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
-	queryParams := r.URL.Query()
+	queryParams := ctx.QueryArgs()
 
-	limitParam, _ := queryParams[string(entity.LimitKey)]
-	limit, err := strconv.Atoi(limitParam[0])
-	if err != nil {
-		forumInfo.logger.Info(err.Error(), zap.String("url", r.RequestURI), zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
-		return
+	limitParam := string(queryParams.Peek(string(entity.LimitKey)))
+	limit := 0
+	if limitParam != "" {
+		limit, err = strconv.Atoi(limitParam)
+		if err != nil {
+			ctx.SetStatusCode(http.StatusBadRequest)
+			return
+		}
 	}
 
-
-	descParam, _ := queryParams[string(entity.DescKey)]
-
-	desc := true
-	if descParam[0] == "" {
+	descParam := string(queryParams.Peek(string(entity.DescKey)))
+	desc := false
+	if descParam == "" {
 		desc = false
+	} else {
+		if descParam == "true" {
+			desc = true
+		}
 	}
 
-	sinceParam, _ := queryParams[string(entity.SinceKey)]
+	sinceParam := string(queryParams.Peek(string(entity.SinceKey)))
+	since := sinceParam
 
-	users, err := forumInfo.ForumApp.GetForumUsers(slug, int32(limit), sinceParam[0], desc)
+	users, err := forumInfo.ForumApp.GetForumUsers(slug, int32(limit), since, desc)
 	if err != nil {
-		forumInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
 	body, err := json.Marshal(users)
 	if err != nil {
-		forumInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 }
 
-func (forumInfo *ForumInfo) HandleGetForumThreads(w http.ResponseWriter, r *http.Request) {
-	forumInfo.logger.Info("starting ForumBranches")
-	vars := mux.Vars(r)
-	slug := vars[string(entity.SlugKey)]
+func (forumInfo *ForumInfo) HandleGetForumThreads(ctx *fasthttp.RequestCtx) {
+	forumnameInterface := ctx.UserValue("forumname")
 
-	err := forumInfo.ForumApp.CheckForum(slug)
+	var slug string
+	switch forumnameInterface.(type) {
+	case string:
+		slug = forumnameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
+	_, err := forumInfo.ForumApp.CheckForumCase(slug)
 	if err != nil {
 		msg := entity.Message {
 			Text: fmt.Sprintf("Can't find forum by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
-	queryParams := r.URL.Query()
+	queryParams := ctx.QueryArgs()
 
-	limitParam, _ := queryParams[string(entity.LimitKey)]
-	limit, err := strconv.Atoi(limitParam[0])
+	limitParam := string(queryParams.Peek(string(entity.LimitKey)))
+	limit, err := strconv.Atoi(limitParam)
 	if err != nil {
-		forumInfo.logger.Info(err.Error(), zap.String("url", r.RequestURI), zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
-
-	descParam, _ := queryParams[string(entity.DescKey)]
-
-	desc := true
-	if descParam[0] == "" {
+	descParam := string(queryParams.Peek(string(entity.DescKey)))
+	desc := false
+	if descParam == "" {
 		desc = false
+	} else {
+		if descParam == "true" {
+			desc = true
+		}
 	}
 
-	sinceParam, _ := queryParams[string(entity.SinceKey)]
+	sinceParam := string(queryParams.Peek(string(entity.SinceKey)))
+	since := sinceParam
 
-	threads, err := forumInfo.ThreadApp.GetThreadsByForumSlug(slug, int32(limit), sinceParam[0], desc)
+	threads, err := forumInfo.ThreadApp.GetThreadsByForumSlug(slug, int32(limit), since, desc)
 	if err != nil {
-		forumInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
 	body, err := json.Marshal(threads)
 	if err != nil {
-		forumInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 }

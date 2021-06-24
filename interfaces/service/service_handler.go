@@ -5,24 +5,21 @@ import (
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
-	"go.uber.org/zap"
+	"github.com/valyala/fasthttp"
 	"net/http"
 )
 
 type ServiceInfo struct {
 	ServiceApp application.ServiceAppInterface
-	logger     *zap.Logger
 }
 
-func NewServiceInfo(ServiceApp application.ServiceAppInterface, logger *zap.Logger) *ServiceInfo {
+func NewServiceInfo(ServiceApp application.ServiceAppInterface) *ServiceInfo {
 	return &ServiceInfo{
 		ServiceApp: ServiceApp,
-		logger:     logger,
 	}
 }
 
-func (serviceInfo *ServiceInfo) HandleClearData(w http.ResponseWriter, r *http.Request) {
-	serviceInfo.logger.Info("HandleClearData")
+func (serviceInfo *ServiceInfo) HandleClearData(ctx *fasthttp.RequestCtx) {
 	err := serviceInfo.ServiceApp.ClearAllDate()
 	if err != nil {
 		msg := entity.Message {
@@ -30,32 +27,27 @@ func (serviceInfo *ServiceInfo) HandleClearData(w http.ResponseWriter, r *http.R
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusInternalServerError)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal("")
 	if err != nil {
-		serviceInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 }
 
-func (serviceInfo *ServiceInfo) HandleGetDBStatus(w http.ResponseWriter, r *http.Request) {
-	serviceInfo.logger.Info("HandleGetDBStatus")
-
+func (serviceInfo *ServiceInfo) HandleGetDBStatus(ctx *fasthttp.RequestCtx) {
 	status, err := serviceInfo.ServiceApp.GetDBStatus()
 	if err != nil {
 		msg := entity.Message {
@@ -63,27 +55,24 @@ func (serviceInfo *ServiceInfo) HandleGetDBStatus(w http.ResponseWriter, r *http
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusInternalServerError)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal(status)
 	if err != nil {
-		serviceInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 	return
 }

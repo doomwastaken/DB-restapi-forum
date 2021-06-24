@@ -17,7 +17,7 @@ func NewForumRepository(db *pgxpool.Pool) *ForumRepo {
 
 const CreateForumQuery = `INSERT INTO forums (slug, title, user_nickname) VALUES($1, $2, $3)`
 func (f *ForumRepo) CreateForum(forumInput *entity.Forum) error {
-	_, err := f.db.Exec(context.Background(), CreateForumQuery, forumInput.Slug, forumInput.Tittle,	forumInput.User)
+	_, err := f.db.Exec(context.Background(), CreateForumQuery, forumInput.Slug, forumInput.Title,	forumInput.User)
 	return err
 }
 
@@ -27,7 +27,7 @@ func (f *ForumRepo) GetForumDetails(slug string) (*entity.Forum, error) {
 
 	err := f.db.QueryRow(context.Background(), GetForumDetailsQuery, slug).Scan(
 		&forum.Slug,
-		&forum.Tittle,
+		&forum.Title,
 		&forum.User,
 		&forum.Threads,
 		&forum.Posts)
@@ -38,14 +38,7 @@ func (f *ForumRepo) GetForumDetails(slug string) (*entity.Forum, error) {
 	return forum, nil
 }
 
-func (f *ForumRepo) GetForumUsers(slug string, limit int32, since string, order string) ([]entity.User, error) {
-	var compare string
-	if order == "DESC" {
-		compare = "<"
-	} else {
-		compare = ">"
-	}
-
+func (f *ForumRepo) GetForumUsers(slug string, limit int32, since string, order string, compare string) ([]entity.User, error) {
 	var query string
 	if since != "" {
 		if limit != 0 {
@@ -55,6 +48,7 @@ func (f *ForumRepo) GetForumUsers(slug string, limit int32, since string, order 
 				ORDER BY u.nickname %v
 				LIMIT %v`, slug, compare, since, order, limit)
 		} else {
+
 			query = fmt.Sprintf(`SELECT u.about, u.email, u.fullname, u.nickname FROM users AS u
 				JOIN forum_user AS fu ON u.nickname = fu.nickname
 				WHERE fu.forum_slug = '%s' AND fu.nickname %v '%s'
@@ -70,7 +64,7 @@ func (f *ForumRepo) GetForumUsers(slug string, limit int32, since string, order 
 		} else {
 			query = fmt.Sprintf(`SELECT u.about, u.email, u.fullname, u.nickname FROM users AS u
 				JOIN forum_user AS fu ON u.nickname = fu.nickname
-				WHERE fu.forum_slug = '%s'
+				WHERE fu.forum_slug = '%s' 
 				ORDER BY u.nickname %v`, slug, order)
 		}
 	}
@@ -90,17 +84,16 @@ func (f *ForumRepo) GetForumUsers(slug string, limit int32, since string, order 
 		}
 		users = append(users, user)
 	}
-
 	return users, nil
 }
 
 const CheckForumQuery = `SELECT slug FROM forums WHERE slug = $1`
-func (f *ForumRepo) CheckForum(slug string) error {
+func (f *ForumRepo) CheckForum(slug string) (string, error) {
 	err := f.db.QueryRow(context.Background(), CheckForumQuery, slug).Scan(&slug)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return slug, nil
 }

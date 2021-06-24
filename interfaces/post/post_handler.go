@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
-	"github.com/gorilla/mux"
-	"go.uber.org/zap"
-	"io/ioutil"
+	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,7 +16,6 @@ type PostInfo struct {
 	UserApp   application.UserAppInterface
 	ThreadApp application.ThreadAppInterface
 	ForumApp  application.ForumAppInterface
-	logger    *zap.Logger
 }
 
 func NewPostInfo(
@@ -26,42 +23,46 @@ func NewPostInfo(
 	UserApp   application.UserAppInterface,
 	ThreadApp application.ThreadAppInterface,
 	ForumApp  application.ForumAppInterface,
-	logger *zap.Logger) *PostInfo {
+	) *PostInfo {
 	return &PostInfo{
 		PostApp: PostApp,
 		UserApp: UserApp,
 		ThreadApp: ThreadApp,
 		ForumApp: ForumApp,
-		logger:  logger,
 	}
 }
 
-func (postInfo *PostInfo) HandleGetPostDetails(w http.ResponseWriter, r *http.Request) {
-	postInfo.logger.Info("HandleGetPostDetails")
-	vars := mux.Vars(r)
-	idStr := vars[string(entity.IDKey)]
+func (postInfo *PostInfo) HandleGetPostDetails(ctx *fasthttp.RequestCtx) {
+	postIDInterface := ctx.UserValue("postID")
+	postID := 0
 
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		postInfo.logger.Info(err.Error(), zap.String("url", r.RequestURI), zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+	var err error
+	switch postIDInterface.(type) {
+	case string:
+		postID, err = strconv.Atoi(postIDInterface.(string))
+		if err != nil {
+			ctx.SetStatusCode(http.StatusBadRequest)
+			return
+		}
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
-	post, err := postInfo.PostApp.GetPostDetails(id)
+	post, err := postInfo.PostApp.GetPostDetails(postID)
 	if err != nil {
 		msg := entity.Message {
-			Text: fmt.Sprintf("Can't find post with id: %v", id),
+			Text: fmt.Sprintf("Can't find post with id: %v", postID),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(body)
+ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
@@ -69,10 +70,12 @@ func (postInfo *PostInfo) HandleGetPostDetails(w http.ResponseWriter, r *http.Re
 		Post: post,
 	}
 
-	queryParams := r.URL.Query()
+	queryParams := ctx.QueryArgs()
 
-	related, _ := queryParams[string(entity.RelatedKey)]
-	if strings.Contains(related[0], "user") {
+	relatedParam := string(queryParams.Peek(string(entity.RelatedKey)))
+	related := relatedParam
+
+	if strings.Contains(related, "user") {
 		author, err := postInfo.UserApp.GetUserByNickname(post.Author)
 		if err != nil {
 			msg := entity.Message{
@@ -80,19 +83,19 @@ func (postInfo *PostInfo) HandleGetPostDetails(w http.ResponseWriter, r *http.Re
 			}
 			body, err := json.Marshal(msg)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(body)
+	ctx.SetContentType("application/json")
+			ctx.SetStatusCode(http.StatusNotFound)
+			ctx.SetBody(body)
 			return
 		}
 		postInformation.Author = author
 	}
 
-	if strings.Contains(related[0], "thread") {
+	if strings.Contains(related, "thread") {
 		thread, err := postInfo.ThreadApp.GetThread(strconv.Itoa(post.Thread))
 		if err != nil {
 			msg := entity.Message{
@@ -100,19 +103,19 @@ func (postInfo *PostInfo) HandleGetPostDetails(w http.ResponseWriter, r *http.Re
 			}
 			body, err := json.Marshal(msg)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(body)
+	ctx.SetContentType("application/json")
+			ctx.SetStatusCode(http.StatusNotFound)
+			ctx.SetBody(body)
 			return
 		}
 		postInformation.Thread = thread
 	}
 
-	if strings.Contains(related[0], "forum") {
+	if strings.Contains(related, "forum") {
 		forum, err := postInfo.ForumApp.GetForumDetails(post.Forum)
 		if err != nil {
 			msg := entity.Message{
@@ -120,13 +123,13 @@ func (postInfo *PostInfo) HandleGetPostDetails(w http.ResponseWriter, r *http.Re
 			}
 			body, err := json.Marshal(msg)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(body)
+	ctx.SetContentType("application/json")
+			ctx.SetStatusCode(http.StatusNotFound)
+			ctx.SetBody(body)
 			return
 		}
 		postInformation.Forum = forum
@@ -134,112 +137,95 @@ func (postInfo *PostInfo) HandleGetPostDetails(w http.ResponseWriter, r *http.Re
 
 	body, err := json.Marshal(postInformation)
 	if err != nil {
-		postInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 	return
 }
 
-func (postInfo *PostInfo) HandleChangePost(w http.ResponseWriter, r *http.Request) {
-	postInfo.logger.Info("starting PostDetailsUpdate")
-	vars := mux.Vars(r)
-	idStr := vars[string(entity.IDKey)]
+func (postInfo *PostInfo) HandleChangePost(ctx *fasthttp.RequestCtx) {
+	postIDInterface := ctx.UserValue("postID")
+	postID := 0
 
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		postInfo.logger.Info(err.Error(), zap.String("url", r.RequestURI), zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+	var err error
+	switch postIDInterface.(type) {
+	case string:
+		postID, err = strconv.Atoi(postIDInterface.(string))
+		if err != nil {
+			ctx.SetStatusCode(http.StatusBadRequest)
+			return
+		}
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
-
 	post := &entity.Post{}
-	data, err := ioutil.ReadAll(r.Body)
+	err = json.Unmarshal(ctx.Request.Body(), post)
 	if err != nil {
-		postInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	err = json.Unmarshal(data, post)
-	if err != nil {
-		postInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
 	if post.Message == "" {
-		post, err = postInfo.PostApp.GetPostDetails(id)
+		post, err = postInfo.PostApp.GetPostDetails(postID)
 		if err != nil {
 			msg := entity.Message {
-				Text: fmt.Sprintf("Can't find post with id: %v", id),
+				Text: fmt.Sprintf("Can't find post with id: %v", postID),
 			}
 			body, err := json.Marshal(msg)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(body)
+	ctx.SetContentType("application/json")
+			ctx.SetStatusCode(http.StatusNotFound)
+			ctx.SetBody(body)
 			return
 		}
 
 		body, err := json.Marshal(post)
 		if err != nil {
-			postInfo.logger.Info(
-				err.Error(), zap.String("url", r.RequestURI),
-				zap.String("method", r.Method))
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusOK)
+		ctx.SetBody(body)
 		return
 	}
-	post.ID = id
+	post.ID = postID
 
 	post, err = postInfo.PostApp.ChangePostMessage(post)
 	if err != nil {
 		msg := entity.Message {
-			Text: fmt.Sprintf("Can't find post with id: %v", id),
+			Text: fmt.Sprintf("Can't find post with id: %v", postID),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(body)
+ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal(post)
 	if err != nil {
-		postInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 	return
 }

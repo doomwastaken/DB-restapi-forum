@@ -1,6 +1,7 @@
 package application
 
 import (
+	"fmt"
 	"forum/domain/entity"
 	"forum/domain/repository"
 )
@@ -17,7 +18,7 @@ type ForumAppInterface interface {
 	CreateForum(forumInput *entity.Forum) error
 	GetForumDetails(slug string) (*entity.Forum, error)
 	GetForumUsers(slug string, limit int32, since string, desc bool) ([]entity.User, error)
-	CheckForum(slug string) error
+	CheckForumCase(slug string) (string, error)
 }
 
 func (f *ForumApp) CreateForum(forumInput *entity.Forum) error {
@@ -30,15 +31,18 @@ func (f *ForumApp) GetForumDetails(slug string) (*entity.Forum, error) {
 
 func (f *ForumApp) GetForumUsers(slug string, limit int32, since string, desc bool) ([]entity.User, error) {
 	order := "ASC"
-	switch desc {
-	case true:
+	var compare string
+	if desc {
 		order = "DESC"
+		compare = "<"
+	} else {
+		compare = ">"
 	}
-
-	return f.f.GetForumUsers(slug, limit, since, order)
+	fmt.Println("=====>", slug, "LIMIT: ", limit, "SINCE: ",since, "DESC: ", desc, "<=====")
+	return f.f.GetForumUsers(slug, limit, since, order, compare)
 }
 
-func (f *ForumApp) CheckForum(slug string) error {
+func (f *ForumApp) CheckForumCase(slug string) (string, error) {
 	return f.f.CheckForum(slug)
 }
 

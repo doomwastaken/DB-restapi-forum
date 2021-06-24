@@ -39,16 +39,16 @@ func (us *UserApp) UpdateUser(newUser *entity.User) (*entity.User, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if newUser.Fullname == nil {
+	newUser.ID = userFromDB.ID
+	if newUser.Fullname == "" {
 		newUser.Fullname = userFromDB.Fullname
 	}
 
-	if newUser.Email == nil {
+	if newUser.Email == "" {
 		newUser.Email = userFromDB.Email
 	}
 
-	if newUser.About == nil {
+	if newUser.About == "" {
 		newUser.About = userFromDB.About
 	}
 

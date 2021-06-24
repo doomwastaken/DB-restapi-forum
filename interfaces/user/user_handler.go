@@ -6,179 +6,151 @@ import (
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
-	"github.com/gorilla/mux"
-	"go.uber.org/zap"
-	"io/ioutil"
+	"github.com/valyala/fasthttp"
 	"net/http"
 )
 
 type UserInfo struct {
 	userApp application.UserAppInterface
-	logger  *zap.Logger
 }
 
-func NewUserInfo(userApp application.UserAppInterface,
-	logger *zap.Logger) *UserInfo {
+func NewUserInfo(userApp application.UserAppInterface) *UserInfo {
 	return &UserInfo{
 		userApp: userApp,
-		logger:  logger,
 	}
 }
 
-func (userInfo *UserInfo) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
-	userInfo.logger.Info("HandleCreateUser")
-	vars := mux.Vars(r)
-	nickname := vars[string(entity.NicknameKey)]
+func (userInfo *UserInfo) HandleCreateUser(ctx *fasthttp.RequestCtx) {
+	usernameInterface := ctx.UserValue("username")
+	userInput := new(entity.User)
 
-	user := &entity.User{}
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		userInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+	switch usernameInterface.(type) {
+	case string:
+		userInput.Nickname = usernameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
-	err = json.Unmarshal(data, user)
+	err := json.Unmarshal(ctx.Request.Body(), userInput)
 	if err != nil {
-		userInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
-	user.Nickname = nickname
-
-	err = userInfo.userApp.CreateUser(user)
+	err = userInfo.userApp.CreateUser(userInput)
 	if err != nil {
-		users, err := userInfo.userApp.GetUsersWithNicknameAndEmail(nickname, *user.Email)
+		users, err := userInfo.userApp.GetUsersWithNicknameAndEmail(userInput.Nickname, userInput.Email)
 		if err != nil {
-			userInfo.logger.Info(
-				err.Error(), zap.String("url", r.RequestURI),
-				zap.String("method", r.Method))
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
 		body, err := json.Marshal(users)
 		if err != nil {
-			userInfo.logger.Info(
-				err.Error(), zap.String("url", r.RequestURI),
-				zap.String("method", r.Method))
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusConflict)
+		ctx.SetBody(body)
 		return
 	}
 
-	body, err := json.Marshal(user)
+	body, err := json.Marshal(userInput)
 	if err != nil {
-		userInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusCreated)
+	ctx.SetBody(body)
 	return
 }
 
-func (userInfo *UserInfo) HandleGetUser(w http.ResponseWriter, r *http.Request) {
-	userInfo.logger.Info("HandleGetUser")
-	vars := mux.Vars(r)
-	nickname := vars[string(entity.NicknameKey)]
+func (userInfo *UserInfo) HandleGetUser(ctx *fasthttp.RequestCtx) {
+	usernameInterface := ctx.UserValue("username")
+	userInput := new(entity.User)
 
-	profile, err := userInfo.userApp.GetUserByNickname(nickname)
+	switch usernameInterface.(type) {
+	case string:
+		userInput.Nickname = usernameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
+
+	profile, err := userInfo.userApp.GetUserByNickname(userInput.Nickname)
 	if err != nil {
 		msg := entity.Message {
-			Text: fmt.Sprintf("Can't find user with id #%v\n", nickname),
+			Text: fmt.Sprintf("Can't find user with id #%v\n", userInput.Nickname),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal(profile)
 	if err != nil {
-		userInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 	return
 }
 
-func (userInfo *UserInfo) HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
-	userInfo.logger.Info("HandleUpdateUser")
-	vars := mux.Vars(r)
-	nickname := vars[string(entity.NicknameKey)]
+func (userInfo *UserInfo) HandleUpdateUser(ctx *fasthttp.RequestCtx) {
+	usernameInterface := ctx.UserValue("username")
+	userInput := new(entity.User)
 
-	profile := &entity.User{}
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		userInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+	switch usernameInterface.(type) {
+	case string:
+		userInput.Nickname = usernameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
-	err = json.Unmarshal(data, profile)
+
+	err := json.Unmarshal(ctx.Request.Body(), userInput)
 	if err != nil {
-		userInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
-	profile.Nickname = nickname
-
-	profileData, err := userInfo.userApp.UpdateUser(profile)
+	profileData, err := userInfo.userApp.UpdateUser(userInput)
 	if err != nil {
 		var msg entity.Message
 		if errors.Is(err, entity.UserDoesntExistsError) {
 			msg = entity.Message {
-				Text: fmt.Sprintf("Can't find user with id #%v\n", nickname),
+				Text: fmt.Sprintf("Can't find user with id #%v\n", userInput.Nickname),
 			}
 			body, err := json.Marshal(msg)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(body)
+			ctx.SetContentType("application/json")
+			ctx.SetStatusCode(http.StatusNotFound)
+			ctx.SetBody(body)
 			return
 		} else if errors.Is(err, entity.DataError) {
-			emailOwnerNickname, err := userInfo.userApp.GetUserNicknameWithEmail(*profile.Email)
+			emailOwnerNickname, err := userInfo.userApp.GetUserNicknameWithEmail(userInput.Email)
 			if err != nil {
-				userInfo.logger.Info(
-					err.Error(), zap.String("url", r.RequestURI),
-					zap.String("method", r.Method))
-				w.WriteHeader(http.StatusInternalServerError)
+				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
 			msg = entity.Message {
@@ -186,27 +158,24 @@ func (userInfo *UserInfo) HandleUpdateUser(w http.ResponseWriter, r *http.Reques
 			}
 			body, err := json.Marshal(msg)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusConflict)
-			w.Write(body)
+			ctx.SetContentType("application/json")
+			ctx.SetStatusCode(http.StatusConflict)
+			ctx.SetBody(body)
 			return
 		}
 	}
 
 	body, err := json.Marshal(profileData)
 	if err != nil {
-		userInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 }

@@ -32,7 +32,8 @@ func (t *ThreadApp) CreatePosts(thread *entity.Thread, posts []entity.Post) erro
 }
 
 func (t *ThreadApp) CreateThread(thread *entity.Thread) error {
-	err := t.forumApp.CheckForum(thread.Forum)
+	var err error
+	thread.Forum, err = t.forumApp.CheckForumCase(thread.Forum)
 	if err != nil {
 		return entity.ForumNotExistError
 	}
@@ -48,13 +49,13 @@ func (t *ThreadApp) GetThreadPosts(slug string, limit int32, since string, sort 
 
 	switch sort {
 	case "flat":
-		return t.t.GetThreadPosts(slug, limit, order, since)
+		return t.t.GetThreadPosts(slug, limit, since, order)
 	case "tree":
-		return t.t.GetThreadPostsTree(slug, limit, order, since)
+		return t.t.GetThreadPostsTree(slug, limit, since, order)
 	case "parent_tree":
-		return t.t.GetThreadPostsParentTree(slug, limit, order, since)
+		return t.t.GetThreadPostsParentTree(slug, limit, since, order)
 	default:
-		return t.t.GetThreadPosts(slug, limit, order, since)
+		return t.t.GetThreadPosts(slug, limit, since, order)
 	}
 }
 

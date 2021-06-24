@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
-	"github.com/gorilla/mux"
-	"go.uber.org/zap"
-	"io/ioutil"
+	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
 )
@@ -15,74 +13,63 @@ import (
 type ThreadInfo struct {
 	ThreadApp application.ThreadAppInterface
 	userApp application.UserAppInterface
-	logger    *zap.Logger
 }
 
 func NewThreadInfo(
 	ThreadApp application.ThreadAppInterface,
 	userApp application.UserAppInterface,
-	logger *zap.Logger) *ThreadInfo {
+	) *ThreadInfo {
 	return &ThreadInfo{
 		ThreadApp: ThreadApp,
 		userApp: userApp,
-		logger:    logger,
 	}
 }
 
-func (threadInfo *ThreadInfo) HandleCreateThread(w http.ResponseWriter, r *http.Request) {
-	threadInfo.logger.Info("HandleCreateThread")
-	vars := mux.Vars(r)
-	slugOrID := vars[string(entity.SlugOrIDKey)]
+func (threadInfo *ThreadInfo) HandleCreateThread(ctx *fasthttp.RequestCtx) {
+	forumnameInterface := ctx.UserValue("threadnameOrID")
+	var slug string
+	switch forumnameInterface.(type) {
+	case string:
+		slug = forumnameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
 
-	thread, err := threadInfo.ThreadApp.GetThreadForumAndID(slugOrID)
+	thread, err := threadInfo.ThreadApp.GetThreadForumAndID(slug)
 	if err != nil {
 		msg := entity.Message {
-			Text: fmt.Sprintf("Can't find post thread by id: %v", slugOrID),
+			Text: fmt.Sprintf("Can't find post thread by id: %v", slug),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
 	posts := make([]entity.Post, 0)
-	data, err := ioutil.ReadAll(r.Body)
+	err = json.Unmarshal(ctx.Request.Body(), &posts)
 	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	err = json.Unmarshal(data, &posts)
-	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
 	if len(posts) == 0 {
 		body, err := json.Marshal(posts)
 		if err != nil {
-			threadInfo.logger.Info(
-				err.Error(), zap.String("url", r.RequestURI),
-				zap.String("method", r.Method))
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusCreated)
+		ctx.SetBody(body)
 		return
 	}
 
@@ -94,13 +81,13 @@ func (threadInfo *ThreadInfo) HandleCreateThread(w http.ResponseWriter, r *http.
 			}
 			body, err := json.Marshal(msg)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusNotFound)
-			w.Write(body)
+			ctx.SetContentType("application/json")
+			ctx.SetStatusCode(http.StatusNotFound)
+			ctx.SetBody(body)
 			return
 		}
 	}
@@ -112,236 +99,223 @@ func (threadInfo *ThreadInfo) HandleCreateThread(w http.ResponseWriter, r *http.
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusConflict)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal(posts)
 	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusCreated)
+	ctx.SetBody(body)
 	return
 }
 
-func (threadInfo *ThreadInfo) HandleGetThreadDetails(w http.ResponseWriter, r *http.Request) {
-	threadInfo.logger.Info("HandleGetThreadDetails")
-	vars := mux.Vars(r)
-	slugOrID := vars[string(entity.SlugOrIDKey)]
+func (threadInfo *ThreadInfo) HandleGetThreadDetails(ctx *fasthttp.RequestCtx) {
+	forumnameInterface := ctx.UserValue("threadnameOrID")
+	var slug string
+	switch forumnameInterface.(type) {
+	case string:
+		slug = forumnameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
 
-	threads, err := threadInfo.ThreadApp.GetThread(slugOrID)
+	threads, err := threadInfo.ThreadApp.GetThread(slug)
 	if err != nil {
 		msg := entity.Message {
-			Text: fmt.Sprintf("Can't find thread by slug: %v", slugOrID),
+			Text: fmt.Sprintf("Can't find thread by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal(threads)
 	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 	return
 }
 
-func (threadInfo *ThreadInfo) HandleUpdateThread(w http.ResponseWriter, r *http.Request) {
-	threadInfo.logger.Info("HandleUpdateThread")
-	vars := mux.Vars(r)
-	slugOrID := vars[string(entity.SlugOrIDKey)]
+func (threadInfo *ThreadInfo) HandleUpdateThread(ctx *fasthttp.RequestCtx) {
+	forumnameInterface := ctx.UserValue("threadnameOrID")
+	var slug string
+	switch forumnameInterface.(type) {
+	case string:
+		slug = forumnameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
 
-	err := threadInfo.ThreadApp.CheckThread(slugOrID)
+	err := threadInfo.ThreadApp.CheckThread(slug)
 	if err != nil {
 		msg := entity.Message {
-			Text: fmt.Sprintf("Can't find thread by slug: %v", slugOrID),
+			Text: fmt.Sprintf("Can't find thread by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
 	thread := &entity.Thread{}
-	data, err := ioutil.ReadAll(r.Body)
+	err = json.Unmarshal(ctx.Request.Body(), thread)
 	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	err = json.Unmarshal(data, thread)
-	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
 	if thread.Title == "" && thread.Message == "" {
-		thread, err = threadInfo.ThreadApp.GetThread(slugOrID)
+		thread, err = threadInfo.ThreadApp.GetThread(slug)
 		if err != nil {
-			threadInfo.logger.Info(
-				err.Error(), zap.String("url", r.RequestURI),
-				zap.String("method", r.Method))
-			w.WriteHeader(http.StatusBadRequest)
+			ctx.SetStatusCode(http.StatusBadRequest)
 			return
 		}
 	} else {
-		err = threadInfo.ThreadApp.UpdateThread(slugOrID, thread)
+		err = threadInfo.ThreadApp.UpdateThread(slug, thread)
 		if err != nil {
-			threadInfo.logger.Info(
-				err.Error(), zap.String("url", r.RequestURI),
-				zap.String("method", r.Method))
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 	}
 
 	body, err := json.Marshal(thread)
 	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 	return
 }
 
-func (threadInfo *ThreadInfo) HandleGetThreadPosts(w http.ResponseWriter, r *http.Request) {
-	threadInfo.logger.Info("HandleGetThreadPosts")
-	vars := mux.Vars(r)
-	slugOrID := vars[string(entity.SlugOrIDKey)]
+func (threadInfo *ThreadInfo) HandleGetThreadPosts(ctx *fasthttp.RequestCtx) {
+	forumnameInterface := ctx.UserValue("threadnameOrID")
+	threadInput := new(entity.Thread)
 
-	err := threadInfo.ThreadApp.CheckThread(slugOrID)
+	switch forumnameInterface.(type) {
+	case string:
+		slug := forumnameInterface.(string)
+		threadInput.Slug = &slug
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
+
+
+	err := threadInfo.ThreadApp.CheckThread(*threadInput.Slug)
 	if err != nil {
 		msg := entity.Message {
-			Text: fmt.Sprintf("Can't find thread by slug: %v", slugOrID),
+			Text: fmt.Sprintf("Can't find thread by slug: %v", *threadInput.Slug),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
-	queryParams := r.URL.Query()
+	queryParams := ctx.QueryArgs()
 
-	limitParam, _ := queryParams[string(entity.LimitKey)]
-	limit, err := strconv.Atoi(limitParam[0])
+	limitParam := string(queryParams.Peek(string(entity.LimitKey)))
+	limit, err := strconv.Atoi(limitParam)
 	if err != nil {
-		threadInfo.logger.Info(err.Error(), zap.String("url", r.RequestURI), zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
-	sortParam, _ := queryParams[string(entity.SortKey)]
-	descParam, _ := queryParams[string(entity.DescKey)]
+	sortParam := string(queryParams.Peek(string(entity.SortKey)))
+	sort := sortParam
 
-	desc := true
-	if descParam[0] == "" {
+	descParam := string(queryParams.Peek(string(entity.DescKey)))
+	desc := false
+	if descParam == "" {
 		desc = false
+	} else {
+		if descParam == "true" {
+			desc = true
+		}
 	}
 
-	sinceParam, _ := queryParams[string(entity.SinceKey)]
+	sinceParam := string(queryParams.Peek(string(entity.SinceKey)))
+	since := sinceParam
 
-	posts, err := threadInfo.ThreadApp.GetThreadPosts(slugOrID, int32(limit), sinceParam[0], sortParam[0], desc)
+	posts, err := threadInfo.ThreadApp.GetThreadPosts(*threadInput.Slug, int32(limit), since, sort, desc)
 	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
 	body, err := json.Marshal(posts)
 	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 	return
 }
 
-func (threadInfo *ThreadInfo) HandleVoteForThread(w http.ResponseWriter, r *http.Request) {
-	threadInfo.logger.Info("HandleVoteForThread")
-	vars := mux.Vars(r)
-	slugOrID := vars[string(entity.SlugOrIDKey)]
+func (threadInfo *ThreadInfo) HandleVoteForThread(ctx *fasthttp.RequestCtx) {
+	forumnameInterface := ctx.UserValue("threadnameOrID")
+	var slug string
+	switch forumnameInterface.(type) {
+	case string:
+		slug = forumnameInterface.(string)
+	default:
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
 
 	vote := &entity.Vote{}
-	data, err := ioutil.ReadAll(r.Body)
+	err := json.Unmarshal(ctx.Request.Body(), vote)
 	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
 
-	err = json.Unmarshal(data, vote)
-	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	vote.Slug = slugOrID
-	id, err := strconv.Atoi(slugOrID)
+	vote.Slug = slug
+	id, err := strconv.Atoi(slug)
 	if err != nil {
 		id = 0
 	}
@@ -350,31 +324,28 @@ func (threadInfo *ThreadInfo) HandleVoteForThread(w http.ResponseWriter, r *http
 	thread, err := threadInfo.ThreadApp.VoteForThread(vote)
 	if err != nil {
 		msg := entity.Message {
-			Text: fmt.Sprintf("Can't find thread by slug: %v", slugOrID),
+			Text: fmt.Sprintf("Can't find thread by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusConflict)
-		w.Write(body)
+		ctx.SetContentType("application/json")
+		ctx.SetStatusCode(http.StatusNotFound)
+		ctx.SetBody(body)
 		return
 	}
 
 	body, err := json.Marshal(thread)
 	if err != nil {
-		threadInfo.logger.Info(
-			err.Error(), zap.String("url", r.RequestURI),
-			zap.String("method", r.Method))
-		w.WriteHeader(http.StatusInternalServerError)
+		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	ctx.SetContentType("application/json")
+	ctx.SetStatusCode(http.StatusOK)
+	ctx.SetBody(body)
 	return
 }
