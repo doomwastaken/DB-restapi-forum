@@ -1,10 +1,10 @@
 package forum
 
 import (
-	"encoding/json"
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
+	json "github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
@@ -272,7 +272,7 @@ func (forumInfo *ForumInfo) HandleGetForumUsers(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	body, err := json.Marshal(users)
+	body, err := json.Marshal(entity.Users(users))
 	if err != nil {
 		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
@@ -339,7 +339,7 @@ func (forumInfo *ForumInfo) HandleGetForumThreads(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	body, err := json.Marshal(threads)
+	body, err := json.Marshal(entity.Threads(threads))
 	if err != nil {
 		ctx.SetStatusCode(http.StatusInternalServerError)
 		return

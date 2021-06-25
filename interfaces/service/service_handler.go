@@ -1,10 +1,10 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
+	json "github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 	"net/http"
 )
@@ -37,14 +37,7 @@ func (serviceInfo *ServiceInfo) HandleClearData(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	body, err := json.Marshal("")
-	if err != nil {
-		ctx.SetStatusCode(http.StatusInternalServerError)
-		return
-	}
-	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(http.StatusOK)
-	ctx.SetBody(body)
 }
 
 func (serviceInfo *ServiceInfo) HandleGetDBStatus(ctx *fasthttp.RequestCtx) {

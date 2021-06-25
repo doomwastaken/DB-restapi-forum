@@ -1,10 +1,10 @@
 package post
 
 import (
-	"encoding/json"
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
+	json "github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
