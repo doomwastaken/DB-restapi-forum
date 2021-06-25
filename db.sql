@@ -8,9 +8,9 @@ DROP TABLE IF EXISTS Forum_user CASCADE;
 
 CREATE UNLOGGED TABLE IF NOT EXISTS users (
     id SERIAL UNIQUE NOT NULL,
-    nickname CITEXT NOT NULL PRIMARY KEY,
-    email    CITEXT NOT NULL UNIQUE,
-    fullname CITEXT NOT NULL,
+    nickname CITEXT collate "C" NOT NULL PRIMARY KEY,
+    email    CITEXT collate "C" NOT NULL UNIQUE,
+    fullname CITEXT collate "C" NOT NULL,
     about    TEXT   NOT NULL
 );
 
@@ -21,11 +21,11 @@ CREATE  INDEX index_users_id ON users USING HASH  (id);
 
 CREATE UNLOGGED TABLE IF NOT EXISTS forums (
     id           SERIAL,
-    slug         CITEXT PRIMARY KEY,
+    slug         CITEXT collate "C" PRIMARY KEY,
     post_count   INT    NOT NULL DEFAULT 0,
     thread_count INT       NOT NULL DEFAULT 0,
     title        TEXT      NOT NULL,
-    user_nickname  CITEXT      NOT NULL
+    user_nickname  CITEXT collate "C"      NOT NULL
 );
 
 CREATE INDEX index_forums ON forums (slug, title, user_nickname, post_count, thread_count);
@@ -35,11 +35,11 @@ CREATE INDEX index_forums_id_hash ON forums USING HASH (id);
 
 CREATE UNLOGGED TABLE IF NOT EXISTS threads (
     id         SERIAL PRIMARY KEY ,
-    author    CITEXT        NOT NULL REFERENCES users(nickname),
+    author    CITEXT collate "C"        NOT NULL REFERENCES users(nickname),
     created   TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    forum     CITEXT        NOT NULL REFERENCES forums(slug),
+    forum     CITEXT collate "C"        NOT NULL REFERENCES forums(slug),
     msg       TEXT        NOT NULL,
-    slug      CITEXT      UNIQUE,
+    slug      CITEXT collate "C"      UNIQUE,
     title     TEXT        NOT NULL,
     votes     INT         NOT NULL DEFAULT 0,
     FOREIGN KEY (forum) REFERENCES Forums (slug) ON DELETE CASCADE,
@@ -69,12 +69,12 @@ CREATE TRIGGER threads_forum_counter AFTER INSERT ON threads FOR EACH ROW EXECUT
 CREATE UNLOGGED TABLE posts (
     id SERIAL PRIMARY KEY ,
     path INTEGER[],
-    author CITEXT NOT NULL REFERENCES users(nickname),
+    author CITEXT collate "C" NOT NULL REFERENCES users(nickname),
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     isEdited BOOLEAN DEFAULT FALSE,
     msg      TEXT  NOT NULL,
     parent   INTEGER,
-    forum CITEXT NOT NULL,
+    forum CITEXT collate "C" NOT NULL,
     thread INTEGER NOT NULL
 );
 
@@ -85,8 +85,8 @@ CREATE INDEX index_posts_path1_path on posts ((path[1]), path);
 CLUSTER posts USING index_posts_thread_parent_path;
 
 CREATE UNLOGGED TABLE Forum_user (
-    forum_slug CITEXT NOT NULL,
-    nickname CITEXT NOT NULL,
+    forum_slug CITEXT collate "C" NOT NULL,
+    nickname CITEXT collate "C" NOT NULL,
     FOREIGN KEY (nickname) REFERENCES Users (nickname)
 );
 
@@ -146,7 +146,7 @@ $check_edited$ LANGUAGE plpgsql;
 
 
 CREATE UNLOGGED TABLE IF NOT EXISTS Thread_vote (
-    nickname   CITEXT REFERENCES users(nickname)   NOT NULL,
+    nickname   CITEXT collate "C" REFERENCES users(nickname)   NOT NULL,
     thread_id INT REFERENCES threads(id)          NOT NULL,
     vote     INT                                 NOT NULL
 );
