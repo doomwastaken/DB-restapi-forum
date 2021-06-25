@@ -17,8 +17,8 @@ RUN apt-get -y update && apt-get install -y postgresql-$PGVER
 USER postgres
 
 RUN /etc/init.d/postgresql start &&\
-    psql --command "CREATE USER postgresuser WITH SUPERUSER PASSWORD '123';" &&\
-    createdb -O postgresuser forum &&\
+    psql --command "CREATE USER docker WITH SUPERUSER PASSWORD 'docker';" &&\
+    createdb -O docker forum &&\
     /etc/init.d/postgresql stop
 
 EXPOSE 5432
@@ -33,5 +33,5 @@ COPY . .
 COPY --from=build /opt/app/main .
 
 EXPOSE 5000
-ENV PGPASSWORD 123
-CMD service postgresql start && psql -h localhost -d forum -U postgresuser -p 5432 -a -q -f ./db.sql && ./main
+ENV PGPASSWORD docker
+CMD service postgresql start && psql -h localhost -d forum -U docker -p 5432 -a -q -f ./db.sql && ./main

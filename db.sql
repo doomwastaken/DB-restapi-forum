@@ -16,9 +16,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS users (
 
 CREATE INDEX index_users_nickname_hash ON users USING HASH (nickname);
 CREATE INDEX index_users_email_hash ON users USING HASH (email);
-CREATE  INDEX idx_users_id ON users USING HASH  (id);
--- CREATE UNIQUE INDEX idx_users_nickname ON users(nickname);
--- CLUSTER users USING idx_users_nickname;
+CREATE  INDEX index_users_id ON users USING HASH  (id);
 
 
 CREATE UNLOGGED TABLE IF NOT EXISTS forums (
@@ -30,11 +28,10 @@ CREATE UNLOGGED TABLE IF NOT EXISTS forums (
     user_nickname  CITEXT      NOT NULL
 );
 
-
 CREATE INDEX index_forums ON forums (slug, title, user_nickname, post_count, thread_count);
 CREATE INDEX index_forums_slug_hash ON forums USING HASH (slug);
 CREATE INDEX index_forums_users_foreign ON forums USING HASH (user_nickname);
-
+CREATE INDEX index_forums_id_hash ON forums USING HASH (id);
 
 CREATE UNLOGGED TABLE IF NOT EXISTS threads (
     id         SERIAL PRIMARY KEY ,
@@ -80,19 +77,20 @@ CREATE UNLOGGED TABLE posts (
     thread INTEGER NOT NULL
 );
 
--- CREATE INDEX index_posts_id on posts (id);
+CREATE INDEX index_posts_id on posts USING HASH (id);
 CREATE INDEX index_posts_thread_id on posts (thread, id);
 CREATE INDEX index_posts_thread_parent_path on posts (thread, parent, path);
 CREATE INDEX index_posts_path1_path on posts ((path[1]), path);
+CLUSTER posts USING index_posts_thread_parent_path;
 
 CREATE UNLOGGED TABLE Forum_user (
     forum_slug CITEXT NOT NULL,
     nickname CITEXT NOT NULL,
-    UNIQUE (forum_slug, nickname),
     FOREIGN KEY (nickname) REFERENCES Users (nickname)
 );
 
-CREATE UNIQUE INDEX idx_forum_users_slug ON forum_user(forum_slug, nickname );
+CREATE UNIQUE INDEX idx_forum_users_slug ON forum_user(forum_slug, nickname);
+CREATE INDEX index_forum_user_nickname ON forum_user USING HASH (nickname);
 CLUSTER forum_user USING idx_forum_users_slug;
 
 CREATE OR REPLACE FUNCTION add_forum_user()
@@ -152,6 +150,8 @@ CREATE UNLOGGED TABLE IF NOT EXISTS Thread_vote (
     vote     INT                                 NOT NULL
 );
 
+CREATE UNIQUE INDEX index_votes ON thread_vote (thread_id, nickname);
+
 ALTER TABLE ONLY Thread_vote ADD CONSTRAINT votes_user_thread_unique UNIQUE (nickname, thread_id);
 CLUSTER Thread_vote USING votes_user_thread_unique;
 
@@ -190,29 +190,6 @@ $vote_update$ LANGUAGE  plpgsql;
 
 DROP TRIGGER IF EXISTS vote_update ON Thread_vote;
 CREATE TRIGGER vote_update AFTER UPDATE ON Thread_vote FOR EACH ROW EXECUTE PROCEDURE vote_update();
-
-
-
--- CREATE OR REPLACE FUNCTION path() RETURNS TRIGGER AS $path$
--- DECLARE
---     parent_path INT[];
---     parent_thread_id INT;
--- BEGIN
---     IF (NEW.parent is null ) THEN
---         NEW.path := NEW.path || NEW.id;
---     ELSE
---         SELECT path, thread FROM posts
---         WHERE id = NEW.parent  INTO parent_path, parent_thread_id;
---         IF parent_thread_id != NEW.thread THEN
---             raise exception 'error228' using errcode = '00409';
---         end if;
---         NEW.path := NEW.path || parent_path || NEW.id;
---     END IF;
---
---     RETURN NEW;
--- END;
---
--- $path$ LANGUAGE  plpgsql;
 
 CREATE OR REPLACE FUNCTION set_post_path()
     RETURNS TRIGGER AS
