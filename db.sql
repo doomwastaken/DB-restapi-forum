@@ -46,8 +46,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS threads (
     FOREIGN KEY (author) REFERENCES Users (nickname) ON DELETE CASCADE
 );
 
-CREATE INDEX index_threads_forum_created ON threads (forum, id);
-CREATE INDEX index_threads_forum_ID ON threads (forum, created);
+CREATE INDEX index_threads_forum_created ON threads (forum, created);
 CREATE INDEX index_threads_created ON threads (created);
 CREATE INDEX index_threads_slug_hash ON threads USING HASH (slug);
 CREATE INDEX index_threads_id_hash ON threads USING HASH (id);
