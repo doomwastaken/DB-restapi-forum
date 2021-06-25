@@ -44,8 +44,8 @@ func (f *ForumRepo) GetForumUsers(slug string, limit int32, since string, order 
 		if limit != 0 {
 			query = fmt.Sprintf(`SELECT u.about, u.email, u.fullname, u.nickname FROM users AS u
 				JOIN forum_user AS fu ON u.nickname = fu.nickname
-				WHERE fu.forum_slug = '%s' AND fu.nickname %v '%s'
-				ORDER BY u.nickname %v
+				WHERE fu.forum_slug = '%s' AND fu.nickname collate "C" %v '%s'
+				ORDER BY u.nickname collate "C" %v
 				LIMIT %v`, slug, compare, since, order, limit)
 		} else {
 
@@ -59,7 +59,7 @@ func (f *ForumRepo) GetForumUsers(slug string, limit int32, since string, order 
 			query = fmt.Sprintf(`SELECT u.about, u.email, u.fullname, u.nickname FROM users AS u
 				JOIN forum_user AS fu ON u.nickname = fu.nickname
 				WHERE fu.forum_slug = '%s'
-				ORDER BY u.nickname %v
+				ORDER BY u.nickname collate "C" %v
 				LIMIT %v`, slug, order, limit)
 		} else {
 			query = fmt.Sprintf(`SELECT u.about, u.email, u.fullname, u.nickname FROM users AS u
@@ -70,6 +70,7 @@ func (f *ForumRepo) GetForumUsers(slug string, limit int32, since string, order 
 	}
 
 	rows, err := f.db.Query(context.Background(), query)
+
 	if err != nil {
 		return nil, err
 	}
