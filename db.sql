@@ -14,7 +14,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS users (
     about    TEXT   NOT NULL
 );
 
-CREATE INDEX index_users_nickname_hash ON users USING HASH (nickname);
+--CREATE INDEX index_users_nickname_hash ON users USING HASH (nickname);
 CREATE INDEX index_users_email_hash ON users USING HASH (email);
 CREATE  INDEX index_users_id ON users USING HASH  (id);
 
@@ -28,8 +28,8 @@ CREATE UNLOGGED TABLE IF NOT EXISTS forums (
     user_nickname  CITEXT      NOT NULL
 );
 
-CREATE INDEX index_forums ON forums (slug, title, user_nickname, post_count, thread_count);
-CREATE INDEX index_forums_slug_hash ON forums USING HASH (slug);
+CREATE INDEX index_forums ON forums (title, user_nickname, post_count, thread_count); --slug,
+--CREATE INDEX index_forums_slug_hash ON forums USING HASH (slug);
 CREATE INDEX index_forums_users_foreign ON forums USING HASH (user_nickname);
 CREATE INDEX index_forums_id_hash ON forums USING HASH (id);
 
@@ -49,7 +49,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS threads (
 CREATE INDEX index_threads_forum_created ON threads (forum, created);
 CREATE INDEX index_threads_created ON threads (created);
 CREATE INDEX index_threads_slug_hash ON threads USING HASH (slug);
-CREATE INDEX index_threads_id_hash ON threads USING HASH (id);
+--CREATE INDEX index_threads_id_hash ON threads USING HASH (id);
 
 CREATE OR REPLACE FUNCTION threads_forum_counter()
     RETURNS TRIGGER AS $threads_forum_counter$
@@ -77,15 +77,15 @@ CREATE UNLOGGED TABLE posts (
     thread INTEGER NOT NULL
 );
 
-CREATE INDEX index_posts_id on posts USING HASH (id);
-CREATE INDEX index_posts_thread_id on posts (thread, id);
+--CREATE INDEX index_posts_id on posts USING HASH (id);
+CREATE INDEX index_posts_thread_tree_search on posts (thread, path);--(thread, id);
 CREATE INDEX index_posts_thread_parent_path on posts (thread, parent, path);
 CREATE INDEX index_posts_path1_path on posts ((path[1]), path);
 CLUSTER posts USING index_posts_thread_parent_path;
 
 CREATE UNLOGGED TABLE Forum_user (
-    forum_slug CITEXT NOT NULL,
-    nickname CITEXT NOT NULL,
+    forum_slug CITEXT  NOT NULL,
+    nickname CITEXT  NOT NULL,
     FOREIGN KEY (nickname) REFERENCES Users (nickname)
 );
 
@@ -145,7 +145,7 @@ $check_edited$ LANGUAGE plpgsql;
 
 
 CREATE UNLOGGED TABLE IF NOT EXISTS Thread_vote (
-    nickname   CITEXT REFERENCES users(nickname)   NOT NULL,
+    nickname   CITEXT  REFERENCES users(nickname)   NOT NULL,
     thread_id INT REFERENCES threads(id)          NOT NULL,
     vote     INT                                 NOT NULL
 );

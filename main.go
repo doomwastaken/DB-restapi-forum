@@ -27,7 +27,7 @@ func loggerMid(req fasthttp.RequestHandler) fasthttp.RequestHandler {
 		begin := time.Now()
 		req(ctx)
 		end := time.Now()
-		if end.Sub(begin) > 90*time.Millisecond {
+		if end.Sub(begin) > 30*time.Millisecond {
 			log.Printf("%s - %s",
 				string(ctx.Request.URI().FullURI()),
 				end.Sub(begin).String())
