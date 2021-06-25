@@ -1,7 +1,6 @@
 package application
 
 import (
-	"fmt"
 	"forum/domain/entity"
 	"forum/domain/repository"
 )
@@ -38,7 +37,6 @@ func (f *ForumApp) GetForumUsers(slug string, limit int32, since string, desc bo
 	} else {
 		compare = ">"
 	}
-	fmt.Println("=====>", slug, "LIMIT: ", limit, "SINCE: ",since, "DESC: ", desc, "<=====")
 	return f.f.GetForumUsers(slug, limit, since, order, compare)
 }
 
