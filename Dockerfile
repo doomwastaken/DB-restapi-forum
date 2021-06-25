@@ -18,7 +18,7 @@ USER postgres
 
 RUN /etc/init.d/postgresql start &&\
     psql --command "CREATE USER postgres WITH SUPERUSER PASSWORD '123;" &&\
-    createdb -O docker forum &&\
+    createdb -O postgres forum &&\
     /etc/init.d/postgresql stop
 
 EXPOSE 5432
