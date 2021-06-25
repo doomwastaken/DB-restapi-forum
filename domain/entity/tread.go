@@ -12,3 +12,6 @@ type Thread struct {
 	Created strfmt.DateTime `json:"created,omitempty"`
 	Votes   int             `json:"votes"`
 }
+
+//easyjson:json
+type Threads []Thread

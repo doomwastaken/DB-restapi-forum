@@ -13,6 +13,9 @@ type Post struct {
 	IsEdited bool            `json:"isEdited"`
 }
 
+//easyjson:json
+type Posts []Post
+
 type PostOutput struct {
 	Post   *Post   `json:"post"`
 	Author *User   `json:"author,omitempty"`

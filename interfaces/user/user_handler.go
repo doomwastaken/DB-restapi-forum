@@ -1,11 +1,11 @@
 package user
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
+	json "github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 	"net/http"
 )
@@ -46,7 +46,7 @@ func (userInfo *UserInfo) HandleCreateUser(ctx *fasthttp.RequestCtx) {
 			return
 		}
 
-		body, err := json.Marshal(users)
+		body, err := json.Marshal(entity.Users(users))
 		if err != nil {
 			ctx.SetStatusCode(http.StatusInternalServerError)
 			return

@@ -9,6 +9,7 @@ require (
 	github.com/go-openapi/strfmt v0.20.1
 	github.com/jackc/pgx/v4 v4.11.0
 	github.com/joho/godotenv v1.3.0
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/valyala/fasthttp v1.27.0
 	go.mongodb.org/mongo-driver v1.5.3 // indirect

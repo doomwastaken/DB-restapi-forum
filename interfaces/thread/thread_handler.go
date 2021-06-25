@@ -1,10 +1,10 @@
 package thread
 
 import (
-	"encoding/json"
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
+	json "github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
@@ -53,7 +53,7 @@ func (threadInfo *ThreadInfo) HandleCreateThread(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	posts := make([]entity.Post, 0)
+	posts := entity.Posts(make([]entity.Post, 0))
 	err = json.Unmarshal(ctx.Request.Body(), &posts)
 	if err != nil {
 		ctx.SetStatusCode(http.StatusBadRequest)
@@ -284,7 +284,7 @@ func (threadInfo *ThreadInfo) HandleGetThreadPosts(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	body, err := json.Marshal(posts)
+	body, err := json.Marshal(entity.Posts(posts))
 	if err != nil {
 		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
