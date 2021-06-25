@@ -1,10 +1,10 @@
 package post
 
 import (
+	"encoding/json"
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
-	json "github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
@@ -12,7 +12,7 @@ import (
 )
 
 type PostInfo struct {
-	PostApp application.PostAppInterface
+	PostApp   application.PostAppInterface
 	UserApp   application.UserAppInterface
 	ThreadApp application.ThreadAppInterface
 	ForumApp  application.ForumAppInterface
@@ -20,15 +20,15 @@ type PostInfo struct {
 
 func NewPostInfo(
 	PostApp application.PostAppInterface,
-	UserApp   application.UserAppInterface,
+	UserApp application.UserAppInterface,
 	ThreadApp application.ThreadAppInterface,
-	ForumApp  application.ForumAppInterface,
-	) *PostInfo {
+	ForumApp application.ForumAppInterface,
+) *PostInfo {
 	return &PostInfo{
-		PostApp: PostApp,
-		UserApp: UserApp,
+		PostApp:   PostApp,
+		UserApp:   UserApp,
 		ThreadApp: ThreadApp,
-		ForumApp: ForumApp,
+		ForumApp:  ForumApp,
 	}
 }
 
@@ -51,7 +51,7 @@ func (postInfo *PostInfo) HandleGetPostDetails(ctx *fasthttp.RequestCtx) {
 
 	post, err := postInfo.PostApp.GetPostDetails(postID)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find post with id: %v", postID),
 		}
 		body, err := json.Marshal(msg)
@@ -60,7 +60,7 @@ func (postInfo *PostInfo) HandleGetPostDetails(ctx *fasthttp.RequestCtx) {
 			return
 		}
 
-ctx.SetContentType("application/json")
+		ctx.SetContentType("application/json")
 		ctx.SetStatusCode(http.StatusNotFound)
 		ctx.SetBody(body)
 		return
@@ -87,7 +87,7 @@ ctx.SetContentType("application/json")
 				return
 			}
 
-	ctx.SetContentType("application/json")
+			ctx.SetContentType("application/json")
 			ctx.SetStatusCode(http.StatusNotFound)
 			ctx.SetBody(body)
 			return
@@ -107,7 +107,7 @@ ctx.SetContentType("application/json")
 				return
 			}
 
-	ctx.SetContentType("application/json")
+			ctx.SetContentType("application/json")
 			ctx.SetStatusCode(http.StatusNotFound)
 			ctx.SetBody(body)
 			return
@@ -127,7 +127,7 @@ ctx.SetContentType("application/json")
 				return
 			}
 
-	ctx.SetContentType("application/json")
+			ctx.SetContentType("application/json")
 			ctx.SetStatusCode(http.StatusNotFound)
 			ctx.SetBody(body)
 			return
@@ -173,7 +173,7 @@ func (postInfo *PostInfo) HandleChangePost(ctx *fasthttp.RequestCtx) {
 	if post.Message == "" {
 		post, err = postInfo.PostApp.GetPostDetails(postID)
 		if err != nil {
-			msg := entity.Message {
+			msg := entity.Message{
 				Text: fmt.Sprintf("Can't find post with id: %v", postID),
 			}
 			body, err := json.Marshal(msg)
@@ -182,7 +182,7 @@ func (postInfo *PostInfo) HandleChangePost(ctx *fasthttp.RequestCtx) {
 				return
 			}
 
-	ctx.SetContentType("application/json")
+			ctx.SetContentType("application/json")
 			ctx.SetStatusCode(http.StatusNotFound)
 			ctx.SetBody(body)
 			return
@@ -203,7 +203,7 @@ func (postInfo *PostInfo) HandleChangePost(ctx *fasthttp.RequestCtx) {
 
 	post, err = postInfo.PostApp.ChangePostMessage(post)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find post with id: %v", postID),
 		}
 		body, err := json.Marshal(msg)
@@ -212,7 +212,7 @@ func (postInfo *PostInfo) HandleChangePost(ctx *fasthttp.RequestCtx) {
 			return
 		}
 
-ctx.SetContentType("application/json")
+		ctx.SetContentType("application/json")
 		ctx.SetStatusCode(http.StatusNotFound)
 		ctx.SetBody(body)
 		return

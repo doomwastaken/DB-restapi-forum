@@ -1,10 +1,10 @@
 package forum
 
 import (
+	"encoding/json"
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
-	json "github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
@@ -20,7 +20,7 @@ func NewForumInfo(
 	ForumApp application.ForumAppInterface,
 	UserApp application.UserAppInterface,
 	ThreadApp application.ThreadAppInterface,
-	) *ForumInfo {
+) *ForumInfo {
 	return &ForumInfo{
 		ForumApp:  ForumApp,
 		UserApp:   UserApp,
@@ -65,7 +65,6 @@ func (forumInfo *ForumInfo) HandleCreateForum(ctx *fasthttp.RequestCtx) {
 			return
 		}
 
-
 		body, err := json.Marshal(existingForum)
 		if err != nil {
 			ctx.SetStatusCode(http.StatusInternalServerError)
@@ -103,7 +102,7 @@ func (forumInfo *ForumInfo) HandleGetForumDetails(ctx *fasthttp.RequestCtx) {
 
 	forum, err := forumInfo.ForumApp.GetForumDetails(slug)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find user with id #%v\n", slug),
 		}
 		body, err := json.Marshal(msg)
@@ -152,7 +151,7 @@ func (forumInfo *ForumInfo) HandleCreateForumThread(ctx *fasthttp.RequestCtx) {
 
 	nickname, err := forumInfo.UserApp.CheckIfUserExists(thread.Author)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find user with id #%v\n", thread.Author),
 		}
 		body, err := json.Marshal(msg)
@@ -171,7 +170,7 @@ func (forumInfo *ForumInfo) HandleCreateForumThread(ctx *fasthttp.RequestCtx) {
 	err = forumInfo.ThreadApp.CreateThread(thread)
 	if err != nil {
 		if err == entity.ForumNotExistError {
-			msg := entity.Message {
+			msg := entity.Message{
 				Text: fmt.Sprintf("Can't find thread forum by slug: %v", thread.Forum),
 			}
 			body, err := json.Marshal(msg)
@@ -228,7 +227,7 @@ func (forumInfo *ForumInfo) HandleGetForumUsers(ctx *fasthttp.RequestCtx) {
 
 	_, err := forumInfo.ForumApp.CheckForumCase(slug)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find forum by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
@@ -273,7 +272,7 @@ func (forumInfo *ForumInfo) HandleGetForumUsers(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	body, err := json.Marshal(entity.Users(users))
+	body, err := json.Marshal(users)
 	if err != nil {
 		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
@@ -297,7 +296,7 @@ func (forumInfo *ForumInfo) HandleGetForumThreads(ctx *fasthttp.RequestCtx) {
 	}
 	_, err := forumInfo.ForumApp.CheckForumCase(slug)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find forum by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
@@ -340,7 +339,7 @@ func (forumInfo *ForumInfo) HandleGetForumThreads(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	body, err := json.Marshal(entity.Threads(threads))
+	body, err := json.Marshal(threads)
 	if err != nil {
 		ctx.SetStatusCode(http.StatusInternalServerError)
 		return

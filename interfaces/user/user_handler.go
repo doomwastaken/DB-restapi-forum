@@ -1,11 +1,11 @@
 package user
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
-	json "github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 	"net/http"
 )
@@ -46,7 +46,7 @@ func (userInfo *UserInfo) HandleCreateUser(ctx *fasthttp.RequestCtx) {
 			return
 		}
 
-		body, err := json.Marshal(entity.Users(users))
+		body, err := json.Marshal(users)
 		if err != nil {
 			ctx.SetStatusCode(http.StatusInternalServerError)
 			return
@@ -84,7 +84,7 @@ func (userInfo *UserInfo) HandleGetUser(ctx *fasthttp.RequestCtx) {
 
 	profile, err := userInfo.userApp.GetUserByNickname(userInput.Nickname)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find user with id #%v\n", userInput.Nickname),
 		}
 		body, err := json.Marshal(msg)
@@ -123,7 +123,6 @@ func (userInfo *UserInfo) HandleUpdateUser(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-
 	err := json.Unmarshal(ctx.Request.Body(), userInput)
 	if err != nil {
 		ctx.SetStatusCode(http.StatusBadRequest)
@@ -134,7 +133,7 @@ func (userInfo *UserInfo) HandleUpdateUser(ctx *fasthttp.RequestCtx) {
 	if err != nil {
 		var msg entity.Message
 		if errors.Is(err, entity.UserDoesntExistsError) {
-			msg = entity.Message {
+			msg = entity.Message{
 				Text: fmt.Sprintf("Can't find user with id #%v\n", userInput.Nickname),
 			}
 			body, err := json.Marshal(msg)
@@ -153,7 +152,7 @@ func (userInfo *UserInfo) HandleUpdateUser(ctx *fasthttp.RequestCtx) {
 				ctx.SetStatusCode(http.StatusInternalServerError)
 				return
 			}
-			msg = entity.Message {
+			msg = entity.Message{
 				Text: fmt.Sprintf("This email is already registered by user: %v", emailOwnerNickname),
 			}
 			body, err := json.Marshal(msg)

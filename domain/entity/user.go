@@ -12,6 +12,3 @@ type User struct {
 	Email    string `json:"email,omitempty"`
 	About    string `json:"about,omitempty"`
 }
-
-//easyjson:json
-type Users []User

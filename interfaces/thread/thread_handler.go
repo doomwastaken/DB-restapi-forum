@@ -1,10 +1,10 @@
 package thread
 
 import (
+	"encoding/json"
 	"fmt"
 	"forum/application"
 	"forum/domain/entity"
-	json "github.com/mailru/easyjson"
 	"github.com/valyala/fasthttp"
 	"net/http"
 	"strconv"
@@ -12,16 +12,16 @@ import (
 
 type ThreadInfo struct {
 	ThreadApp application.ThreadAppInterface
-	userApp application.UserAppInterface
+	userApp   application.UserAppInterface
 }
 
 func NewThreadInfo(
 	ThreadApp application.ThreadAppInterface,
 	userApp application.UserAppInterface,
-	) *ThreadInfo {
+) *ThreadInfo {
 	return &ThreadInfo{
 		ThreadApp: ThreadApp,
-		userApp: userApp,
+		userApp:   userApp,
 	}
 }
 
@@ -38,7 +38,7 @@ func (threadInfo *ThreadInfo) HandleCreateThread(ctx *fasthttp.RequestCtx) {
 
 	thread, err := threadInfo.ThreadApp.GetThreadForumAndID(slug)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find post thread by id: %v", slug),
 		}
 		body, err := json.Marshal(msg)
@@ -53,7 +53,7 @@ func (threadInfo *ThreadInfo) HandleCreateThread(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	posts := entity.Posts(make([]entity.Post, 0))
+	posts := make([]entity.Post, 0)
 	err = json.Unmarshal(ctx.Request.Body(), &posts)
 	if err != nil {
 		ctx.SetStatusCode(http.StatusBadRequest)
@@ -76,7 +76,7 @@ func (threadInfo *ThreadInfo) HandleCreateThread(ctx *fasthttp.RequestCtx) {
 	for _, post := range posts {
 		_, err = threadInfo.userApp.CheckIfUserExists(post.Author)
 		if err != nil {
-			msg := entity.Message {
+			msg := entity.Message{
 				Text: fmt.Sprintf("Can't find post author by nickname: %v", post.Author),
 			}
 			body, err := json.Marshal(msg)
@@ -94,7 +94,7 @@ func (threadInfo *ThreadInfo) HandleCreateThread(ctx *fasthttp.RequestCtx) {
 
 	err = threadInfo.ThreadApp.CreatePosts(thread, posts)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Parent post was created in another thread"),
 		}
 		body, err := json.Marshal(msg)
@@ -134,7 +134,7 @@ func (threadInfo *ThreadInfo) HandleGetThreadDetails(ctx *fasthttp.RequestCtx) {
 
 	threads, err := threadInfo.ThreadApp.GetThread(slug)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find thread by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
@@ -174,7 +174,7 @@ func (threadInfo *ThreadInfo) HandleUpdateThread(ctx *fasthttp.RequestCtx) {
 
 	err := threadInfo.ThreadApp.CheckThread(slug)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find thread by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
@@ -235,10 +235,9 @@ func (threadInfo *ThreadInfo) HandleGetThreadPosts(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-
 	err := threadInfo.ThreadApp.CheckThread(*threadInput.Slug)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find thread by slug: %v", *threadInput.Slug),
 		}
 		body, err := json.Marshal(msg)
@@ -284,7 +283,7 @@ func (threadInfo *ThreadInfo) HandleGetThreadPosts(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	body, err := json.Marshal(entity.Posts(posts))
+	body, err := json.Marshal(posts)
 	if err != nil {
 		ctx.SetStatusCode(http.StatusInternalServerError)
 		return
@@ -323,7 +322,7 @@ func (threadInfo *ThreadInfo) HandleVoteForThread(ctx *fasthttp.RequestCtx) {
 
 	thread, err := threadInfo.ThreadApp.VoteForThread(vote)
 	if err != nil {
-		msg := entity.Message {
+		msg := entity.Message{
 			Text: fmt.Sprintf("Can't find thread by slug: %v", slug),
 		}
 		body, err := json.Marshal(msg)
