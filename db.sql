@@ -16,7 +16,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS users (
 
 CREATE INDEX index_users_nickname_hash ON users USING HASH (nickname);
 CREATE INDEX index_users_email_hash ON users USING HASH (email);
-
+CREATE INDEX index_users_id ON users USING HASH (id);
 
 CREATE UNLOGGED TABLE IF NOT EXISTS forums (
     id           SERIAL,
@@ -29,6 +29,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS forums (
 
 CREATE INDEX index_forums ON forums (slug, title, user_nickname, post_count, thread_count);
 CREATE INDEX index_forums_users_foreign ON forums USING HASH (user_nickname);
+CREATE INDEX index_forums_slug_hash ON forums USING HASH (slug);
 CREATE INDEX index_forums_id_hash ON forums USING HASH (id);
 
 CREATE UNLOGGED TABLE IF NOT EXISTS threads (
@@ -46,10 +47,9 @@ CREATE UNLOGGED TABLE IF NOT EXISTS threads (
 
 CREATE INDEX index_threads_forum_created ON threads (forum, id);
 CREATE INDEX index_threads_forum_ID ON threads (forum, created);
-CREATE INDEX index_threads_forum ON threads (forum);
 CREATE INDEX index_threads_created ON threads (created);
 CREATE INDEX index_threads_slug_hash ON threads USING HASH (slug);
-
+CREATE INDEX index_threads_id_hash ON threads USING HASH (id);
 
 CREATE OR REPLACE FUNCTION threads_forum_counter()
     RETURNS TRIGGER AS $threads_forum_counter$
@@ -80,9 +80,9 @@ CREATE UNLOGGED TABLE posts (
 CREATE INDEX index_posts_thread on posts (thread);
 CREATE INDEX index_posts_thread_id on posts (thread, id);
 CREATE INDEX index_posts_forum on posts (forum);
+CREATE INDEX index_posts_id on posts USING HASH (id);
 CREATE INDEX index_posts_thread_parent_path on posts (thread, parent, path);
 CREATE INDEX index_posts_path1_path on posts ((path[1]), path);
-CREATE INDEX index_posts_path2 on posts ((path[2]));
 CLUSTER posts USING index_posts_thread_parent_path;
 
 CREATE UNLOGGED TABLE Forum_user (
